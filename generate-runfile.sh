@@ -3,15 +3,15 @@
 # Generate a MATLAB run file for RIXS scans with serpentine Sx/Sy stepping.
 #
 # Usage:
-#   ./generate-runfile.sh OUTPUT_FILE PREFIX START_RUN START_VERT START_SX DELTA_VERT DELTA_SX [TOTAL_POINTS] [POINTS_PER_ROW]
+#   ./generate-runfile.sh OUTPUT_FILE PREFIX START_RUN START_VERT START_SX DELTA_VERT DELTA_SX [N_ROWS] [N_COLS]
 #
 # Example:
-#   ./generate-runfile.sh reference-runfiles/generated_run.m 2SB2 1 67.6 -7.2 1.0 0.5 9 3
+#   ./generate-runfile.sh reference-runfiles/generated_run.m 2SB2 1 67.6 -7.2 1.0 0.5 3 3
 
 set -eu
 
 if [ "$#" -lt 7 ] || [ "$#" -gt 9 ]; then
-    echo "Usage: $0 OUTPUT_FILE PREFIX START_RUN START_VERT START_SX DELTA_VERT DELTA_SX [TOTAL_POINTS] [POINTS_PER_ROW]" >&2
+    echo "Usage: $0 OUTPUT_FILE PREFIX START_RUN START_VERT START_SX DELTA_VERT DELTA_SX [N_ROWS] [N_COLS]" >&2
     exit 1
 fi
 
@@ -22,8 +22,8 @@ start_vert="$4"
 start_sx="$5"
 delta_vert="$6"
 delta_sx="$7"
-total_points="${8:-9}"
-points_per_row="${9:-3}"
+n_rows="${8:-3}"
+n_cols="${9:-3}"
 
 case "$start_run" in
     ''|*[!0-9]*)
@@ -32,24 +32,26 @@ case "$start_run" in
         ;;
 esac
 
-case "$total_points" in
+case "$n_rows" in
     ''|*[!0-9]*)
-        echo "TOTAL_POINTS must be a positive integer." >&2
+        echo "N_ROWS must be a positive integer." >&2
         exit 1
         ;;
 esac
 
-case "$points_per_row" in
+case "$n_cols" in
     ''|*[!0-9]*)
-        echo "POINTS_PER_ROW must be a positive integer." >&2
+        echo "N_COLS must be a positive integer." >&2
         exit 1
         ;;
 esac
 
-if [ "$total_points" -le 0 ] || [ "$points_per_row" -le 0 ]; then
-    echo "TOTAL_POINTS and POINTS_PER_ROW must be > 0." >&2
+if [ "$n_rows" -le 0 ] || [ "$n_cols" -le 0 ]; then
+    echo "N_ROWS and N_COLS must be > 0." >&2
     exit 1
 fi
+
+total_points=$((n_rows * n_cols))
 
 if ! command -v awk >/dev/null 2>&1; then
     echo "awk is required but was not found in PATH." >&2
@@ -82,7 +84,7 @@ scan_tail='2463 1 2468 0.5 2469 .1 2476 .5 2483 1 2498 5 2538 1'
         run_num=$((run_num + 1))
 
         if [ "$point_idx" -lt "$total_points" ]; then
-            if [ $((point_idx % points_per_row)) -eq 0 ]; then
+            if [ $((point_idx % n_cols)) -eq 0 ]; then
                 printf 'mvr vert %s\n\n' "$delta_vert"
                 sx_dir=$((sx_dir * -1))
             else
