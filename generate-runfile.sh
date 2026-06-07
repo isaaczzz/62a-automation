@@ -125,16 +125,17 @@ mul_float() {
 }
 
 emit_content() {
-    printf '%% output_stem: %s\n' "$output_stem"
-    printf '%% prefix: %s\n' "$prefix"
-    printf '%% element: %s\n' "$element"
-    printf '%% start_run: %s\n' "$start_run"
-    printf '%% start_vert: %s\n' "$start_vert"
-    printf '%% start_sx: %s\n' "$start_sx"
-    printf '%% delta_vert: %s\n' "$delta_vert"
-    printf '%% delta_sx: %s\n' "$delta_sx"
-    printf '%% n_rows: %s\n' "$n_rows"
-    printf '%% n_cols: %s\n\n' "$n_cols"
+    printf '%% ---------- herfd xas lol ----------\n'
+    printf '%% %-14s %s\n' 'output_stem:' "$output_stem"
+    printf '%% %-14s %s\n' 'prefix:' "$prefix"
+    printf '%% %-14s %s\n' 'element:' "$element"
+    printf '%% %-14s %s\n' 'start_run:' "$start_run"
+    printf '%% %-14s %s\n' 'start_vert:' "$start_vert"
+    printf '%% %-14s %s\n' 'start_sx:' "$start_sx"
+    printf '%% %-14s %s\n' 'delta_vert:' "$delta_vert"
+    printf '%% %-14s %s\n' 'delta_sx:' "$delta_sx"
+    printf '%% %-14s %s\n' 'n_rows:' "$n_rows"
+    printf '%% %-14s %s\n\n' 'n_cols:' "$n_cols"
     printf 'close all\n\n'
     printf 'andorSet numKins 1; andorSet setshutter 0; pause(2);\n\n'
     printf 'mv vert %s\n' "$start_vert"
@@ -149,6 +150,7 @@ emit_content() {
     while [ "$point_idx" -le "$total_points" ]; do
         run_suffix=$(printf '%02d' "$run_num")
 
+        printf 'SPEC_connect();\n'
         printf 'andorSet numKins 1; andorSet setshutter 0; pause(2);\n'
         printf 'rixs %s_%s_RIXS_%s %s\n\n' "$prefix" "$rixs_tag" "$run_suffix" "$scan_tail"
 
