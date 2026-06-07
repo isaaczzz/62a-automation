@@ -11,11 +11,6 @@
 
 ## Note: go to upper and lower vert bounds and check the Sx range to ensure that this finds the right pts!
 
-#!/bin/sh
-
-# Usage:
-#   ./spot_moves.sh Vmin Vmax Smin Smax Vstep Sstep
-
 Vmin="$1"
 Vmax="$2"
 Smin="$3"
