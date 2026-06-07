@@ -53,13 +53,16 @@ check_cmd() {
 while IFS= read -r line || [[ -n "$line" ]]; do
     ((line_num++))
 
+    # Remove inline comments first
+    trimmed="$(echo "$line" | sed 's/%.*$//')"
+
     # Trim leading/trailing whitespace
-    trimmed="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    trimmed="$(echo "$trimmed" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 
     # Skip empty lines
     [[ -z "$trimmed" ]] && continue
 
-    # Skip MATLAB comments
+    # Skip full-line comments
     [[ "$trimmed" =~ ^% ]] && continue
 
     # Split semicolon chains

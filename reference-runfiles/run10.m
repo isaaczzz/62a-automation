@@ -43,7 +43,7 @@ mvr Sx 0.5
 mvr Sy 0.5
 %acq SHAgB2_SKb_2474.00eV_02 expTime 7 numKins 80 dark 1; andorSet setshutter 0; pause(2);
 
-mv vert 69.5
+vert 69.5
 mv Sx -7.2
 mv Sy -7.2
 acq SHAgB2_SKb_2474.00eV_03 expTime 7 numKins 80 dark 1; andorSet setshutter 0; pause(2);
