@@ -19,6 +19,21 @@ if [[ ! -f "$file" ]]; then
 fi
 
 line_num=0
+spot_files=""
+
+check_duplicate_file() {
+    local fname="$1"
+
+    # Check if fname is already in spot_files
+    case " $spot_files " in
+        *" $fname "*)
+            return 1
+            ;;
+    esac
+
+    # Otherwise add it
+    spot_files="$spot_files $fname"
+}
 
 check_cmd() {
     local cmd="$1"
@@ -41,8 +56,26 @@ check_cmd() {
     # go_functionName
     [[ "$cmd" =~ ^go_[A-Za-z0-9_]+$ ]] && return 0
 
+    # rixs filename
+    if [[ "$cmd" =~ ^rixs[[:space:]]+([A-Za-z0-9_.-]+) ]]; then
+        fname="${BASH_REMATCH[1]}"
+        if ! check_duplicate_file "$fname"; then
+            echo "[Warning] Line ($line_num) filename: $fname"
+        fi
+        return 0
+    fi
+
     # rixs name + numeric pairs (XAS)
     [[ "$cmd" =~ ^rixs[[:space:]]+[A-Za-z0-9_]+([[:space:]]+[-+]?[0-9]*\.?[0-9]+)+$ ]] && return 0
+
+    # acq filename
+    if [[ "$cmd" =~ ^acq[[:space:]]+([A-Za-z0-9_.-]+) ]]; then
+        fname="${BASH_REMATCH[1]}"
+        if ! check_duplicate_file "$fname"; then
+            echo "[Warning] Line ($line_num) duplicate filename: $fname"
+        fi
+        return 0
+    fi
 
     # acq name expTime X numKins Y dark Z (XES)
     [[ "$cmd" =~ ^acq[[:space:]]+[A-Za-z0-9_.]+[[:space:]]+expTime[[:space:]]+[-+]?[0-9]*\.?[0-9]+[[:space:]]+numKins[[:space:]]+[0-9]+[[:space:]]+dark[[:space:]]+[01]$ ]] && return 0
