@@ -1,12 +1,13 @@
 #!/usr/bin/env sh
 
-# Generate a MATLAB run file for RIXS scans with serpentine Sx/Sy stepping.
+# Generate a MATLAB run file for RIXS scans from explicit spot coordinates.
 #
 # Usage:
-#   ./generate-runfile.sh [--append|--overwrite] OUTPUT_FILE PREFIX ELEMENT START_RUN START_VERT START_SX DELTA_VERT DELTA_SX [N_ROWS] [N_COLS]
+#   ./generate_xas_run.sh [--append|--overwrite] OUTPUT_FILE PREFIX ELEMENT [SPOTS_FILE] [START_RUN] [NUM_SPOTS]
 #
 # Example:
-#   ./generate-runfile.sh --overwrite reference-runfiles/generated_run.m 2SB2 S 1 67.6 -7.2 1.0 0.5 3 3
+#   ./generate_xas_run.sh --overwrite reference-runfiles/generated_run.m 2SB2 S
+#   ./generate_xas_run.sh --overwrite reference-runfiles/generated_run.m 2SB2 S spots.txt 1 9
 
 set -eu
 
@@ -42,21 +43,43 @@ if [ "$append_mode" -eq 1 ] && [ "$overwrite_mode" -eq 1 ]; then
     exit 1
 fi
 
-if [ "$#" -lt 8 ] || [ "$#" -gt 10 ]; then
-    echo "Usage: $0 [--append|--overwrite] OUTPUT_FILE PREFIX ELEMENT START_RUN START_VERT START_SX DELTA_VERT DELTA_SX [N_ROWS] [N_COLS]" >&2
+if [ "$#" -lt 3 ] || [ "$#" -gt 6 ]; then
+    echo "Usage: $0 [--append|--overwrite] OUTPUT_FILE PREFIX ELEMENT [SPOTS_FILE] [START_RUN] [NUM_SPOTS]" >&2
     exit 1
 fi
 
 out_file="$1"
 prefix="$2"
 element="$3"
-start_run="$4"
-start_vert="$5"
-start_sx="$6"
-delta_vert="$7"
-delta_sx="$8"
-n_rows="${9:-3}"
-n_cols="${10:-3}"
+spots_file="spots.txt"
+start_run="1"
+requested_spots=""
+
+shift 3
+if [ "$#" -gt 0 ]; then
+    case "$1" in
+        ''|*[!0-9]*)
+            spots_file="$1"
+            shift
+            ;;
+    esac
+fi
+
+if [ "$#" -gt 0 ]; then
+    start_run="$1"
+    shift
+fi
+
+if [ "$#" -gt 0 ]; then
+    requested_spots="$1"
+    shift
+fi
+
+if [ "$#" -gt 0 ]; then
+    echo "Too many positional arguments." >&2
+    echo "Usage: $0 [--append|--overwrite] OUTPUT_FILE PREFIX ELEMENT [SPOTS_FILE] [START_RUN] [NUM_SPOTS]" >&2
+    exit 1
+fi
 
 output_name="${out_file##*/}"
 output_stem="$output_name"
@@ -66,35 +89,85 @@ esac
 
 case "$start_run" in
     ''|*[!0-9]*)
-        echo "START_RUN must be a non-negative integer." >&2
+        echo "START_RUN must be a positive integer." >&2
         exit 1
         ;;
 esac
 
-case "$n_rows" in
-    ''|*[!0-9]*)
-        echo "N_ROWS must be a positive integer." >&2
-        exit 1
-        ;;
-esac
-
-case "$n_cols" in
-    ''|*[!0-9]*)
-        echo "N_COLS must be a positive integer." >&2
-        exit 1
-        ;;
-esac
-
-if [ "$n_rows" -le 0 ] || [ "$n_cols" -le 0 ]; then
-    echo "N_ROWS and N_COLS must be > 0." >&2
+if [ "$start_run" -le 0 ]; then
+    echo "START_RUN must be >= 1." >&2
     exit 1
 fi
 
-total_points=$((n_rows * n_cols))
+if [ -n "$requested_spots" ]; then
+    case "$requested_spots" in
+        ''|*[!0-9]*)
+            echo "NUM_SPOTS must be a positive integer." >&2
+            exit 1
+            ;;
+    esac
+
+    if [ "$requested_spots" -le 0 ]; then
+        echo "NUM_SPOTS must be >= 1." >&2
+        exit 1
+    fi
+fi
+
+if [ ! -f "$spots_file" ]; then
+    echo "Spots file not found: $spots_file" >&2
+    exit 1
+fi
 
 if ! command -v awk >/dev/null 2>&1; then
     echo "awk is required but was not found in PATH." >&2
     exit 1
+fi
+
+spots_header=$(awk '/^#/ {print; exit}' "$spots_file")
+scan_meta_vmin=''
+scan_meta_vmax=''
+scan_meta_smin=''
+scan_meta_smax=''
+scan_meta_vstep=''
+scan_meta_sstep=''
+
+if [ -n "$spots_header" ]; then
+    parse_header_field() {
+        awk -v key="$1" -v line="$spots_header" 'BEGIN{if (match(line, key"=([^ ]+)", m)) print m[1]}'
+    }
+    scan_meta_vmin=$(parse_header_field 'VMIN')
+    scan_meta_vmax=$(parse_header_field 'VMAX')
+    scan_meta_smin=$(parse_header_field 'SMIN')
+    scan_meta_smax=$(parse_header_field 'SMAX')
+    scan_meta_vstep=$(parse_header_field 'VSTEP')
+    scan_meta_sstep=$(parse_header_field 'SSTEP')
+fi
+
+available_spots=$(awk '
+BEGIN{count=0}
+{
+    line=$0
+    sub(/^[[:space:]]+/, "", line)
+    if (line == "" || substr(line,1,1) == "#") next
+    if (NF < 2) next
+    if ($1 ~ /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/ && $2 ~ /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/) count++
+}
+END{print count}
+' "$spots_file")
+
+if [ "$available_spots" -le 0 ]; then
+    echo "No valid coordinate rows found in $spots_file" >&2
+    exit 1
+fi
+
+if [ -n "$requested_spots" ]; then
+    if [ "$requested_spots" -gt "$available_spots" ]; then
+        echo "Requested NUM_SPOTS ($requested_spots) exceeds available spots ($available_spots)." >&2
+        exit 1
+    fi
+    spots_to_use="$requested_spots"
+else
+    spots_to_use="$available_spots"
 fi
 
 case "$element" in
@@ -120,8 +193,53 @@ if [ -e "$out_file" ] && [ "$append_mode" -eq 0 ] && [ "$overwrite_mode" -eq 0 ]
     exit 1
 fi
 
-mul_float() {
-    awk -v a="$1" -v b="$2" 'BEGIN{printf "%.12g", a*b}'
+selected_spots_stream() {
+    awk -v max="$spots_to_use" '
+    BEGIN{count=0}
+    {
+        line=$0
+        sub(/^[[:space:]]+/, "", line)
+        if (line == "" || substr(line,1,1) == "#") next
+        if (NF < 2) next
+        if ($1 ~ /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/ && $2 ~ /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/) {
+            print $1, $2
+            count++
+            if (count >= max) exit
+        }
+    }
+    ' "$spots_file"
+}
+
+unused_spots_stream() {
+    awk -v skip="$spots_to_use" '
+    BEGIN{count=0}
+    {
+        line=$0
+        sub(/^[[:space:]]+/, "", line)
+        if (line == "" || substr(line,1,1) == "#") next
+        if (NF < 2) next
+        if ($1 ~ /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/ && $2 ~ /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/) {
+            count++
+            if (count > skip) printf "%.6f\t%.6f\n", $1, $2
+        }
+    }
+    ' "$spots_file"
+}
+
+unused_spots_file() {
+    base_name=$(basename -- "$spots_file")
+    base_dir=$(dirname -- "$spots_file")
+    case "$base_name" in
+        *.*)
+            stem=${base_name%.*}
+            ext=.${base_name##*.}
+            ;;
+        *)
+            stem=$base_name
+            ext=''
+            ;;
+    esac
+    printf '%s/%s_unused%s\n' "$base_dir" "$stem" "$ext"
 }
 
 emit_content() {
@@ -129,42 +247,33 @@ emit_content() {
     printf '%% %-14s %s\n' 'output_stem:' "$output_stem"
     printf '%% %-14s %s\n' 'prefix:' "$prefix"
     printf '%% %-14s %s\n' 'element:' "$element"
+    printf '%% %-14s %s\n' 'spots_file:' "$spots_file"
     printf '%% %-14s %s\n' 'start_run:' "$start_run"
-    printf '%% %-14s %s\n' 'start_vert:' "$start_vert"
-    printf '%% %-14s %s\n' 'start_sx:' "$start_sx"
-    printf '%% %-14s %s\n' 'delta_vert:' "$delta_vert"
-    printf '%% %-14s %s\n' 'delta_sx:' "$delta_sx"
-    printf '%% %-14s %s\n' 'n_rows:' "$n_rows"
-    printf '%% %-14s %s\n\n' 'n_cols:' "$n_cols"
+    if [ -n "$scan_meta_vmin" ] || [ -n "$scan_meta_vmax" ] || [ -n "$scan_meta_smin" ] || [ -n "$scan_meta_smax" ] || [ -n "$scan_meta_vstep" ] || [ -n "$scan_meta_sstep" ]; then
+        printf '%% %-14s %s\n' 'VMIN:' "$scan_meta_vmin"
+        printf '%% %-14s %s\n' 'VMAX:' "$scan_meta_vmax"
+        printf '%% %-14s %s\n' 'SMIN:' "$scan_meta_smin"
+        printf '%% %-14s %s\n' 'SMAX:' "$scan_meta_smax"
+        printf '%% %-14s %s\n' 'VSTEP:' "$scan_meta_vstep"
+        printf '%% %-14s %s\n' 'SSTEP:' "$scan_meta_sstep"
+    fi
+    printf '%% %-14s %s\n\n' 'num_spots:' "$spots_to_use"
     printf 'close all\n\n'
-    printf 'andorSet numKins 1; andorSet setshutter 0; pause(2);\n\n'
-    printf 'mv vert %s\n' "$start_vert"
-    printf 'mv Sx %s\n' "$start_sx"
-    printf 'mv Sy %s\n\n' "$start_sx"
     printf '%s\n\n' "$go_cmd"
 
     run_num="$start_run"
     point_idx=1
-    sx_dir=1
 
-    while [ "$point_idx" -le "$total_points" ]; do
+    selected_spots_stream | while IFS=' ' read -r vert sx; do
         run_suffix=$(printf '%02d' "$run_num")
 
         printf 'andorSet numKins 1; andorSet setshutter 0; pause(2);\n'
+        printf 'mv vert %s\n' "$vert"
+        printf 'mv Sx %s\n' "$sx"
+        printf 'mv Sy %s\n' "$sx"
         printf 'rixs %s_%s_RIXS_%s %s\n\n' "$prefix" "$rixs_tag" "$run_suffix" "$scan_tail"
 
         run_num=$((run_num + 1))
-
-        if [ "$point_idx" -lt "$total_points" ]; then
-            if [ $((point_idx % n_cols)) -eq 0 ]; then
-                printf 'mvr vert %s\n\n' "$delta_vert"
-                sx_dir=$((sx_dir * -1))
-            else
-                signed_dx=$(mul_float "$delta_sx" "$sx_dir")
-                printf 'mvr Sx %s\n' "$signed_dx"
-                printf 'mvr Sy %s\n\n' "$signed_dx"
-            fi
-        fi
 
         if [ $((point_idx % 9)) -eq 0 ]; then
             printf 'andorSet numKins 1; andorSet setshutter 0; pause(2);\n'
@@ -173,6 +282,49 @@ emit_content() {
 
         point_idx=$((point_idx + 1))
     done
+}
+
+print_spot_table() {
+    printf '\n'
+    printf 'SPOTS SOURCE: %s\n' "$spots_file"
+    printf '%-6s %-6s %-12s %-12s\n' 'INDEX' 'RUN' 'VERT' 'SX'
+    printf '%-6s %-6s %-12s %-12s\n' '-----' '---' '----' '--'
+
+    awk -v max="$spots_to_use" -v run0="$start_run" '
+    BEGIN{idx=0}
+    {
+        line=$0
+        sub(/^[[:space:]]+/, "", line)
+        if (line == "" || substr(line,1,1) == "#") next
+        if (NF < 2) next
+        if ($1 ~ /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/ && $2 ~ /^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$/) {
+            idx++
+            runIdx = run0 + idx - 1
+            printf "%-6d %-6d %-12.6f %-12.6f\n", idx, runIdx, $1, $2
+            if (idx >= max) exit
+        }
+    }
+    ' "$spots_file"
+
+    printf 'TOTAL SPOTS USED: %s\n' "$spots_to_use"
+}
+
+write_unused_spots_file() {
+    if [ "$spots_to_use" -ge "$available_spots" ]; then
+        return
+    fi
+
+    out_unused=$(unused_spots_file)
+    {
+        if [ -n "$spots_header" ]; then
+            printf '%s\n' "$spots_header"
+        else
+            printf '# Generated from %s\n' "$spots_file"
+        fi
+        unused_spots_stream
+    } >"$out_unused"
+
+    echo "Wrote unused spots: $out_unused"
 }
 
 if [ "$append_mode" -eq 1 ]; then
@@ -184,3 +336,5 @@ else
 fi
 
 echo "Generated $out_file"
+print_spot_table
+write_unused_spots_file
