@@ -163,20 +163,30 @@ function result = run_rixs_batch(varargin)
 
     [runPatterns, firstIdx] = unique(runPatternsPerFile, 'stable');
     runScanNumbers = usedScanNumbers(firstIdx);
+    outputFiles = cell(size(runPatterns));
+    for k = 1:numel(runPatterns)
+        outputFiles{k} = build_extract_output_file(runPatterns{k});
+    end
 
     failedScanNumbers = [];
     failedFiles = {};
+    failedOutputFiles = {};
 
     for k = 1:numel(runPatterns)
         filePattern = runPatterns{k};
         scanNumber = runScanNumbers(k);
+        outputFile = outputFiles{k};
+        fprintf('run_rixs_batch: scan %.10g pattern %s -> %s\n', ...
+            scanNumber, filePattern, outputFile);
         try
-            onepotRIXS_iz(filePattern, integrationWindow, integrationCenter);
+            onepotRIXS_iz(filePattern, integrationWindow, integrationCenter, 'OutputFile', outputFile);
         catch ex
             failedScanNumbers(end + 1) = scanNumber; %#ok<AGROW>
             failedFiles{end + 1} = filePattern; %#ok<AGROW>
+            failedOutputFiles{end + 1} = outputFile; %#ok<AGROW>
             warning('run_rixs_batch:ScanFailed', ...
-                'Failed for file %s (scan %g): %s', filePattern, scanNumber, ex.message);
+                'Failed for pattern %s (scan %g, output %s): %s', ...
+                filePattern, scanNumber, outputFile, ex.message);
         end
     end
 
@@ -192,8 +202,10 @@ function result = run_rixs_batch(varargin)
     result.RequestedScanNumbers = requestedScanNumbers;
     result.UsedScanNumbers = usedScanNumbers;
     result.RunPatterns = runPatterns;
+    result.OutputFiles = outputFiles;
     result.FailedScanNumbers = failedScanNumbers;
     result.FailedFiles = failedFiles;
+    result.FailedOutputFiles = failedOutputFiles;
 end
 
 function scanToken = extract_scan_token(fileName)
@@ -240,4 +252,19 @@ function runPattern = build_run_pattern(fileName)
     end
 
     runPattern = sprintf('%s%s*.sif', prefixToken{1}, groupToken);
+end
+
+function outputFile = build_extract_output_file(runPattern)
+    [~, baseName, extension] = fileparts(runPattern);
+    stem = [baseName, extension];
+    stem = regexprep(stem, '\.sif$', '');
+    stem = strrep(stem, '*', '');
+    stem = strrep(stem, '?', '');
+    stem = regexprep(stem, '[\[\]]', '');
+
+    if isempty(stem)
+        stem = 'RIXS';
+    end
+
+    outputFile = ['extract_', stem, '.txt'];
 end

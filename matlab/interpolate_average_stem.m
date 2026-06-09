@@ -9,7 +9,8 @@ function result = interpolate_average_stem(fileStem, varargin)
 %
 % This function:
 %   1) Finds all .txt files in DataDir whose names contain fileStem.
-%      If fileStem is omitted or empty, matches files starting with extract_.
+%      If fileStem is omitted or empty, matches extract_* files that contain
+%      '_RIXS_' (run_rixs_batch outputs).
 %   2) Interpolates each file onto a common overlapping E grid.
 %   3) Averages all signal columns (non-E columns).
 %   4) Writes average data to <fileStem>.txt.
@@ -50,6 +51,8 @@ function result = interpolate_average_stem(fileStem, varargin)
         outputStemLabel = fileStem;
     end
 
+    outDataName = [outputStemLabel, '.txt'];
+
     if isempty(strtrim(dataDir))
         dataDir = default_data_dir();
     end
@@ -65,20 +68,39 @@ function result = interpolate_average_stem(fileStem, varargin)
 
     names = {txtFiles.name};
     if useDefaultExportStem
-        isMatch = startsWith(names, 'extract_');
+        isMatch = startsWith(names, 'extract_') & contains(names, '_RIXS_');
     else
         isMatch = contains(names, fileStem);
     end
+
+    % Do not include the output file from previous runs.
+    isMatch = isMatch & ~strcmp(names, outDataName);
+
     matchNames = names(isMatch);
     if isempty(matchNames)
         if useDefaultExportStem
-            error("No files starting with 'extract_' were found in %s", dataDir);
+            error("No extract_* files containing '_RIXS_' were found in %s", dataDir);
         else
             error("No files containing stem '%s' were found in %s", fileStem, dataDir);
         end
     end
 
     matchNames = sort(matchNames);
+    matchScans = nan(size(matchNames));
+    for k = 1:numel(matchNames)
+        matchScans(k) = extract_scan_number(matchNames{k});
+    end
+
+    finiteIdx = isfinite(matchScans);
+    if any(finiteIdx)
+        finiteNames = matchNames(finiteIdx);
+        finiteScans = matchScans(finiteIdx);
+        [~, orderFinite] = sort(finiteScans);
+        finiteNames = finiteNames(orderFinite);
+
+        nonFiniteNames = sort(matchNames(~finiteIdx));
+        matchNames = [finiteNames, nonFiniteNames];
+    end
 
     if ~isempty(requestedScans)
         allScanNumbers = nan(size(matchNames));
@@ -141,6 +163,11 @@ function result = interpolate_average_stem(fileStem, varargin)
         if ~isequal(signalNames, spectra{k}.SignalNames)
             error("Signal columns are inconsistent across matching files.");
         end
+    end
+
+    if ~any(strcmpi(signalNames, 'HERFD')) || ~any(strcmpi(signalNames, 'TFY'))
+        available = strjoin(signalNames, ', ');
+        error("Matching files must include HERFD and TFY columns. Found: %s", available);
     end
 
     commonMin = max(eMin);

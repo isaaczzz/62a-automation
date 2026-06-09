@@ -2,6 +2,7 @@ function [HERFD,E,fig] = onepotRIXS_iz(file,n,central_pix,varargin)
 % refactored to call patched onepot_iz()
 
 I0_corr = true;
+outputFile = '';
 
 
 skip=0;
@@ -18,6 +19,12 @@ for i = 1:numel(varargin)
                 I0_corr = eval(I0_corr);
             end
             skip=1;
+        case lower({'outputfile' 'outfile'})
+            outputFile = varargin{i+1};
+            if isstring(outputFile)
+                outputFile = char(outputFile);
+            end
+            skip = 1;
     end
 end
 
@@ -46,6 +53,9 @@ if nargin==0
     file = get(get(get(RIXS_h,'parent'),'title'),'string');
 else
     fig = findobj('type','figure','name',[file '_scan']);
+    if ~isempty(fig)
+        fig = fig(1);
+    end
 end
 
 if isempty(fig)
@@ -64,6 +74,8 @@ if isempty(fig)
     set(fig,'name',[file '_scan'])
 
     %fig=fig(1);
+    RIXS_h=findobj(fig,'type','surface');
+else
     RIXS_h=findobj(fig,'type','surface');
 end
 
@@ -183,14 +195,39 @@ end
 
 
 if nargout ==0
-   
-   fileSave=strcat('extract_',file);
-   fileSave=strcat(fileSave,'.txt');
-   fid=fopen(fileSave,'wt');
-   fprintf(fid,'\nE\tHERFD\tTFY\n');
+
+   if isempty(outputFile)
+       outputFile = default_extract_output_file(file);
+   end
+
+   [fid, msg] = fopen(outputFile, 'wt');
+   if fid < 0
+       error('onepotRIXS_iz:OutputWriteFailed', ...
+           'Could not open output file %s (%s)', outputFile, msg);
+   end
+
+   fileCloser = onCleanup(@() fclose(fid));
+   fprintf(fid,'E\tHERFD\tTFY\n');
    fprintf(fid,'%f\t%f\t%f\n',[ E(:),  HERFD(:) ,sum(RIXS,1)' ]');
-   fclose(fid);
+   clear fileCloser;
    
    HERFD = [ file,sprintf('\nE\tHERFD\tTFY\n') , sprintf('%f\t%f\t%f\n',[ E(:),  HERFD(:) ,sum(RIXS,1)' ]') ];
       
+end
+
+end
+
+function outputFile = default_extract_output_file(filePattern)
+    [~, baseName, extension] = fileparts(filePattern);
+    stem = [baseName, extension];
+    stem = regexprep(stem, '\.sif$', '');
+    stem = strrep(stem, '*', '');
+    stem = strrep(stem, '?', '');
+    stem = regexprep(stem, '[\[\]]', '');
+
+    if isempty(stem)
+        stem = 'RIXS';
+    end
+
+    outputFile = ['extract_', stem, '.txt'];
 end
