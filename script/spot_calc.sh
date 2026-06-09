@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Usage:
-#   ./spot_calc.sh Vert_min Vert_max Sx_min Sx_max Vert_step Sx_step
+#   ./spot_calc.sh Vert_min Vert_max Sx_min Sx_max Vert_step Sx_step [SPOTS_FILE]
 #
 
 ## Context: currently, the way we go about identifying spots @ 6-2a is dscan vert, find center, dscan Sx, find center
@@ -21,10 +21,12 @@
 
 ## Note: WANT TO CHECK THE POLAR ENDS OF VERT TO ENSURE POINTS ARE VALID FOR ACTUAL APERTURE
 
-if [[ $# -lt 6 ]]; then
-    echo "Usage: $0 VMIN VMAX SMIN SMAX VSTEP SSTEP"
+if [[ $# -lt 6 || $# -gt 7 ]]; then
+    echo "Usage: $0 VMIN VMAX SMIN SMAX VSTEP SSTEP [SPOTS_FILE]"
     exit 1
 fi
+
+spots_file="${7:-spots.txt}"
 
 VMIN=$1
 VMAX=$2
@@ -119,10 +121,17 @@ while [[ $i -le 1 ]]; do
     i=$((i+1))
 done
 
+{
+    printf "# VMIN=%s VMAX=%s SMIN=%s SMAX=%s VSTEP=%s SSTEP=%s\n" \
+        "$VMIN" "$VMAX" "$SMIN" "$SMAX" "$VSTEP" "$SSTEP"
+    printf "%b" "$best_points" | awk 'NF>=2 {printf "%.6f\t%.6f\n", $1, $2}'
+} >"$spots_file"
+
 echo "VERT       SX"
 echo "--------------"
-printf "%b" "$best_points" | awk '{printf "%6.3f  %6.3f\n",$1,$2}'
+awk '($1 !~ /^#/ && NF>=2){printf "%6.3f  %6.3f\n",$1,$2}' "$spots_file"
 echo "TOTAL POINTS: $best"
+echo "WROTE: $spots_file"
 if [[ "$best" -ge 9 ]]; then
     echo "STATUS: OK"
 else
