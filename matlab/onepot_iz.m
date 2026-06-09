@@ -48,8 +48,9 @@
 
 % Tsu-Chien Weng, November 2015
 % Stanislaw Nowak, February 2016
+% Isaac Zakaria (lmao), June 2026
 
-function varargout=onepot(files,varargin)%fileNbrs,drawing_mode,t)
+function varargout=onepot_iz(files,varargin)%fileNbrs,drawing_mode,t)
 if nargin<1, files='data.sif'; end
 
 
@@ -307,9 +308,6 @@ if ~read_data
 
     %%
     
-    corr_signal_posive = corr_signal;
-    corr_signal_posive(corr_signal_posive<0) = 0;
-    
     if frameIndex ==0
         total_counts = sum(total_counts2.raw);
         frameIndex = true(size(total_counts));
@@ -330,6 +328,9 @@ if ~read_data
             'scan_data','corr_signal','signal_bkgFree','bcg_counts','raw','total_counts','total_counts2','t','Treshold','bcg','bcg_info','his','his_prep','bcg_free','bcg_adj','fileNbrs','frameIndex' ,'scanNbrs','measue_time')%, 'adu_map' )
     end
 end
+
+corr_signal_posive = corr_signal;
+corr_signal_posive(corr_signal_posive<0) = 0;
 
 
 hfig = [];

@@ -1,4 +1,5 @@
-function [HERFD,E,fig] = onepotRIXS(file,n,central_pix,varargin)
+function [HERFD,E,fig] = onepotRIXS_iz(file,n,central_pix,varargin)
+% refactored to call patched onepot_iz()
 
 I0_corr = true;
 
@@ -55,7 +56,7 @@ if isempty(fig)
     end
     
     if isempty(fig_file)
-        onepot(file ,'saveTo','./','readData',1,'scanParam','mono');
+        onepot_iz(file ,'saveTo','./','readData',1,'scanParam','mono');
         fig = findobj('type','figure','name',[file '_scan']);
     else
         fig = openfig(fig_file.name);%str2num

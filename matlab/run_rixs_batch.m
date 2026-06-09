@@ -1,5 +1,5 @@
 function result = run_rixs_batch(varargin)
-%RUN_RIXS_BATCH Run onepotRIXS over matching RIXS .sif scans.
+%RUN_RIXS_BATCH Run onepotRIXS_iz over matching RIXS .sif scans.
 %
 % Usage:
 %   result = run_rixs_batch()
@@ -22,7 +22,7 @@ function result = run_rixs_batch(varargin)
 %     directory are processed.
 %   - Inferred scan numbers are parsed from text between '_RIXS_' and '.sif'.
 %     Example: '*_RIXS_01_3359.50.sif' -> 1
-%   - onepotRIXS is called with grouped wildcards per scan subset.
+%   - onepotRIXS_iz is called with grouped wildcards per scan subset.
 %     Example: 'AgNO3_AgLa_RIXS_01_3358.55.sif' -> 'AgNO3_AgLa_RIXS_01*.sif'
 %
 % Default integration values (used when omitted):
@@ -171,7 +171,7 @@ function result = run_rixs_batch(varargin)
         filePattern = runPatterns{k};
         scanNumber = runScanNumbers(k);
         try
-            onepotRIXS(filePattern, integrationWindow, integrationCenter);
+            onepotRIXS_iz(filePattern, integrationWindow, integrationCenter);
         catch ex
             failedScanNumbers(end + 1) = scanNumber; %#ok<AGROW>
             failedFiles{end + 1} = filePattern; %#ok<AGROW>
