@@ -19,6 +19,8 @@
 ##      count valid points
 ##      keep grid shift with greatest num of pts
 
+## Note: WANT TO CHECK THE POLAR ENDS OF VERT TO ENSURE POINTS ARE VALID FOR ACTUAL APERTURE
+
 if [[ $# -lt 6 ]]; then
     echo "Usage: $0 VMIN VMAX SMIN SMAX VSTEP SSTEP"
     exit 1
