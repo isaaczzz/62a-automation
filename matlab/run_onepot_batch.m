@@ -25,7 +25,7 @@ function result = run_onepot_batch(varargin)
 %   P1SMe_AgL3val_3359.30eV_02.sif
 %
 % For each selected file, calls:
-%   onepot_iz(fileName, 'bcg', [fileWithoutExt '_dark.sif'], OnepotArgs{:})
+%   onepot_iz(fileName, 'bcg', [fileWithoutExt '_dark.sif'], 'extract', true, OnepotArgs{:})
 
     defaultFileStem = '';
     fileStem = defaultFileStem;
